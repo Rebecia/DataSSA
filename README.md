@@ -1,27 +1,23 @@
-# Database Agent（数据库分析助手）
+# DataSSA（数据库分析助手）
 
-一个面向数据分析/排障的本地 CLI 工具，提供两种交互方式：
+  数据团队经常需要查询数据库做数据分析，但给每个人都开数据库直连权限风险太大，会存在误执行误操作导致数据被改的事故。
+  需要一种安全的方式让 AI Agent 能帮团队查数据，同时确保数据库安全。因此我设计了一个面向数据分析/排障的工具提供两种交互方式：
 
-- **SQL 模式（只读、无需 LLM）**：直接执行 `SELECT/WITH`，或用 `/tables`、`/desc`、`/stats` 等命令快速探索数据。
-- **自然语言模式（LLM + MCP 工具）**：用自然语言描述问题，Agent 自动调用数据库工具并输出解读报告。
-
-本项目的数据库访问通过 **MCP Server** 暴露的只读工具完成，并带有安全拦截与审计日志（`audit.log`）。
-
-> 基于开源项目 Nanobot 的引擎能力进行集成（vendored），并在此基础上增加了：只读 SQL 模式、数据库 MCP Server、安全拦截与审计、项目化 CLI 封装。
+- **SQL 模式**：直接执行 SQL 命令，快速探索数据。
+- **自然语言模式**：用自然语言描述问题，Agent 自动调用数据库工具并输出解读报告。
 
 ---
+## 项目特点
 
-## 功能特性
-
-- 只读数据库查询工具（MCP）：
-  - `list_tables` / `describe_table` / `get_statistics` / `query_database(SELECT only)`
-- SQL 安全防护：
-  - 禁止非 SELECT、禁止多语句、拦截常见注入模式（UNION、OR 1=1、注释、延时等）
-- 审计日志：
-  - 每次查询/拦截都会写入 `reports/audit.log`（JSONL）
-- 两种交互模式：
-  - SQL 模式不调用 LLM，速度快、可预测
-  - 自然语言模式适合业务提问与自动报告
+- **多模式交互**：SQL 模式低延迟、输出更稳定；自然语言模式接收，实现 Agent 自动调用数据库工具并输出解读报告。
+- **安全边界清晰**：设置四层安全边界：
+  - SQL 语句解析，只允许 SELECT 和 WITH 开头的查询；
+  - 危险关键字检测，拦截 DROP、DELETE、UPDATE 等 14 个危险关键字；
+  - 注入模式检测，用正则匹配 UNION SELECT、OR 1=1 等 12 种常见注入模式；
+  - 多语句检测，禁止分号分隔的多语句执行。
+  
+- **可追溯**：无论成功查询还是被拦截，都会写入 `reports/audit.log`（JSONL），便于复盘与合规。
+- **工程化可落地**：Docker 启动 + 并发压测示例，目录划分清晰（`data/`、`workspace/`、`reports/`）。
 
 ---
 
@@ -49,17 +45,52 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2) 配置密钥
+### 2) 配置 LLM Key（可选）
 
-复制并填写 `.env`：
+如果你只用 **SQL 模式**（不调用 LLM），这一步可以先跳过。
 
-```bash
-cp .env.example .env
+如果要用 **自然语言模式**，直接在 `config.json` 里填写你要用的 provider 的 `apiKey`（不依赖 `.env`），例如只改这一小段：
+
+```json
+{
+  "agents": { "defaults": { "provider": "deepseek" } },
+  "providers": { "deepseek": { "apiKey": "sk-xxx", "apiBase": "https://api.deepseek.com" } }
+}
 ```
 
-> 自然语言模式需要 LLM API Key。SQL 模式不需要。
+### 3) 配置数据库连接（把 database MCP 接进来）
 
-### 3) 启动交互（会话内选择模式）
+数据库访问通过 `mcp_server/db_server.py` 提供的 MCP 工具完成，你需要在 `config.json` 中配置：
+
+- `command`：启动命令（通常 `python3`）
+- `args`：MCP server 脚本路径
+- `env.DB_PATH`：SQLite DB 文件路径
+
+示例：
+
+```json
+{
+  "tools": {
+    "mcpServers": {
+      "database": {
+        "command": "python3",
+        "args": ["mcp_server/db_server.py"],
+        "env": {
+          "DB_PATH": "./data/business.db",
+          "QUERY_TIMEOUT": "30",
+          "MAX_ROWS": "1000",
+          "DB_READONLY": "true"
+        },
+        "description": "安全的数据库查询服务"
+      }
+    }
+  }
+}
+```
+
+> 审计日志默认写入 `./reports/audit.log`（JSONL，每行一条）。
+
+### 4) 启动交互（会话内选择模式）
 
 ```bash
 ./bin/database-agent agent
@@ -72,6 +103,15 @@ cp .env.example .env
 ./bin/database-agent agent --mode nl
 ```
 
+### 5) SQL 模式常用命令（示例）
+
+进入 SQL 模式后可用：
+
+- `/tables`：列出表
+- `/desc users`：查看表结构
+- `/stats users`：查看基础统计
+- 直接输入 `SELECT ...`：执行查询（只读）
+
 ---
 
 ## Docker（并发测试）
@@ -82,6 +122,10 @@ docker compose up -d --build
 docker compose exec -it database-agent ./bin/database-agent agent --mode sql
 ```
 
+Docker 下 DB 文件通过 volume 挂载到容器内 `/app/data`（见 `docker-compose.yml`），因此：
+
+- `DB_PATH` 推荐使用 `./data/business.db`（相对项目根目录），或在容器内改成 `/app/data/business.db`。
+
 并行压测示例（10 并发、50 次）：
 
 ```bash
@@ -89,7 +133,3 @@ docker compose exec -it database-agent sh -lc 'seq 50 | xargs -P 10 -I{} ./bin/d
 ```
 
 ---
-
-## License & Attribution
-
-- 本项目包含 vendored 的 Nanobot 源码与其 LICENSE：`vendor/nanobot-main/LICENSE`。
