@@ -9,7 +9,7 @@ services:
     stdin_open: true
     environment:
       # LLM provider (if you keep apiKey in config.json, this is optional)
-      - DEEPSEEK_API_KEY=sk-78fb9614e31a405e9045d805136ae729
+      - DEEPSEEK_API_KEY=<your api key>
       # Database settings (also overridden by tools.mcpServers.database.env in config.json)
       - DB_PATH=/app/data/business.db
       - DB_READONLY=true
