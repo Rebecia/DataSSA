@@ -1,0 +1,15 @@
+.DS_Store
+__pycache__/
+**/__pycache__/
+*.pyc
+
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Local secrets
+.env
+
+# Editor
+.vscode/
+.idea/

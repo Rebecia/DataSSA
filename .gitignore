@@ -1,0 +1,15 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets
+.env
+
+# Runtime artifacts
+workspace/memory/
+reports/audit.log
+workspace/memory/config.resolved.json

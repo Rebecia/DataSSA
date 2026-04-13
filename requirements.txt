@@ -1,0 +1,4 @@
+loguru>=0.7.3,<1.0.0
+
+# Use vendored nanobot source (editable install) so the CLI runs from code in this repo.
+-e vendor/nanobot-main
