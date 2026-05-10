@@ -7,7 +7,7 @@
 
 > 仓库内置静态前端页面：`/login`、`/app`、`/admin`；后端为 FastAPI。
 
-<p align="center">
+<p align="left">
   <img src="docs/assets/login.jpg" width="360" />
   <img src="docs/assets/app.jpg" width="360" />
   <img src="docs/assets/admin.jpg" width="360" />
