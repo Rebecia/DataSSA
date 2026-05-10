@@ -3,13 +3,11 @@
 面向可信查询的多数据库 Agent Runtime：将一次数据提问标准化为可控闭环
 `NL → SQL → 安全校验 → 执行 → 结果解读`，并落盘 **trace（可回放）** 与 **audit（可审计）**。
 
-# 功能概览
+## 功能概览
 
-<p align="left">
-  <img src="docs/assets/login.jpg" width="360" />
-  <img src="docs/assets/app.jpg" width="360" />
-  <img src="docs/assets/admin.jpg" width="360" />
-</p>
+| Login | App | Admin |
+|---|---|---|
+| <img src="docs/assets/login.jpg" width="300" /> | <img src="docs/assets/app.jpg" width="300" /> | <img src="docs/assets/admin.jpg" width="300" /> |
 
 
 ## Capabilities
