@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DataSSA Login</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #111a33;
+        --text: #e7ecff;
+        --muted: #a8b3d6;
+        --border: rgba(231, 236, 255, 0.12);
+        --accent: #7aa2ff;
+        --danger: #ff6b6b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        background: radial-gradient(1200px 800px at 20% 0%, #18224a 0%, var(--bg) 55%);
+        color: var(--text);
+      }
+      header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(17, 26, 51, 0.55);
+        backdrop-filter: blur(8px);
+        position: sticky;
+        top: 0;
+      }
+      header h1 { margin: 0; font-size: 16px; font-weight: 650; }
+      header .sub { margin-top: 6px; font-size: 12px; color: var(--muted); }
+      main { max-width: 860px; margin: 0 auto; padding: 18px 20px 28px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+      .card {
+        background: rgba(17, 26, 51, 0.66);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+      }
+      label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+      input {
+        width: 100%;
+        padding: 10px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(231, 236, 255, 0.14);
+        background: rgba(9, 13, 28, 0.55);
+        color: var(--text);
+        outline: none;
+      }
+      input:focus { border-color: rgba(122, 162, 255, 0.6); box-shadow: 0 0 0 3px rgba(122, 162, 255, 0.18); }
+      button {
+        border: 1px solid rgba(122, 162, 255, 0.45);
+        background: linear-gradient(180deg, rgba(122, 162, 255, 0.25), rgba(122, 162, 255, 0.12));
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 650;
+        width: 100%;
+      }
+      button.secondary { border-color: rgba(231, 236, 255, 0.16); background: rgba(9, 13, 28, 0.35); font-weight: 600; }
+      .hint { font-size: 12px; color: var(--muted); margin-top: 10px; }
+      .err { font-size: 12px; color: var(--danger); margin-top: 10px; white-space: pre-wrap; }
+      code { color: var(--text); }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>DataSSA</h1>
+      <div class="sub">选择入口：用户查询（只读） / 管理员控制台。</div>
+    </header>
+    <main>
+      <div class="grid">
+        <section class="card">
+          <h3 style="margin:0 0 10px 0;">用户登录</h3>
+          <label for="userId">user_id（只允许字母数字、_、-）</label>
+          <input id="userId" placeholder="例如 userA" />
+          <div style="margin-top:12px;">
+            <button id="userGo">进入查询</button>
+          </div>
+          <div class="hint"></div>
+          <div id="userErr" class="err" style="display:none;"></div>
+        </section>
+
+        <section class="card">
+          <h3 style="margin:0 0 10px 0;">管理员登录</h3>
+          <label for="adminToken">Admin token</label>
+          <input id="adminToken" placeholder="请输入 token" />
+          <div style="margin-top:12px;">
+            <button id="adminGo" class="secondary">进入管理后台</button>
+          </div>
+          <div class="hint">管理员可配置数据源、权限与复盘。</div>
+          <div id="adminErr" class="err" style="display:none;"></div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      function showErr(el, text) {
+        if (!text) { el.style.display = "none"; el.textContent = ""; return; }
+        el.style.display = "block"; el.textContent = text;
+      }
+
+      function safeId(v) { return (v || "").trim(); }
+      function isSafeId(v) {
+        if (!v || v.length < 1 || v.length > 64) return false;
+        return /^[A-Za-z0-9_-]+$/.test(v);
+      }
+
+      function loadSaved() {
+        const u = localStorage.getItem("datasaa.user_id") || "";
+        const t = localStorage.getItem("datasaa.admin_token") || "";
+        $("userId").value = u;
+        $("adminToken").value = t;
+      }
+      loadSaved();
+
+      $("userGo").addEventListener("click", () => {
+        const userId = safeId($("userId").value);
+        if (!isSafeId(userId)) return showErr($("userErr"), "user_id 不合法：仅允许字母数字、下划线(_)与短横线(-)，长度 1..64");
+        localStorage.setItem("datasaa.user_id", userId);
+        location.href = "/app";
+      });
+
+      $("adminGo").addEventListener("click", () => {
+        const token = safeId($("adminToken").value);
+        if (!token) return showErr($("adminErr"), "请填写管理员 token");
+        localStorage.setItem("datasaa.admin_token", token);
+        location.href = "/admin";
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DataSSA Admin</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #111a33;
+        --text: #e7ecff;
+        --muted: #a8b3d6;
+        --border: rgba(231, 236, 255, 0.12);
+        --accent: #7aa2ff;
+        --danger: #ff6b6b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: radial-gradient(1200px 800px at 20% 0%, #18224a 0%, var(--bg) 55%);
+        color: var(--text);
+      }
+      header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(17, 26, 51, 0.55);
+        backdrop-filter: blur(8px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      header h1 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: 0.2px; }
+      header .sub { margin-top: 6px; font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+      header a { color: var(--accent); text-decoration: none; }
+      header a:hover { text-decoration: underline; }
+      main { max-width: 980px; margin: 0 auto; padding: 18px 20px 28px; }
+      .card {
+        background: rgba(17, 26, 51, 0.66);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+      }
+      label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+      input, select, textarea {
+        width: 100%;
+        padding: 10px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(231, 236, 255, 0.14);
+        background: rgba(9, 13, 28, 0.55);
+        color: var(--text);
+        outline: none;
+      }
+      input:focus, select:focus, textarea:focus { border-color: rgba(122, 162, 255, 0.6); box-shadow: 0 0 0 3px rgba(122, 162, 255, 0.18); }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .admin-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+      button {
+        border: 1px solid rgba(122, 162, 255, 0.45);
+        background: linear-gradient(180deg, rgba(122, 162, 255, 0.25), rgba(122, 162, 255, 0.12));
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button.secondary { border-color: rgba(231, 236, 255, 0.16); background: rgba(9, 13, 28, 0.35); font-weight: 550; }
+      .small { font-size: 12px; color: var(--muted); }
+      .err { font-size: 12px; color: var(--danger); margin-top: 10px; white-space: pre-wrap; }
+      .table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      .table th, .table td { border-bottom: 1px solid rgba(231, 236, 255, 0.12); padding: 8px 8px; font-size: 12px; color: var(--muted); vertical-align: top; }
+      .table th { color: var(--text); text-align: left; font-weight: 650; }
+      .table td code { color: var(--text); }
+      .tag { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 999px; border: 1px solid rgba(231, 236, 255, 0.14); background: rgba(9, 13, 28, 0.25); color: var(--muted); font-size: 11px; }
+      .tag.on { border-color: rgba(122, 162, 255, 0.45); color: var(--text); }
+      .table tbody tr { cursor: pointer; }
+      .table tbody tr:hover { background: rgba(9, 13, 28, 0.25); }
+      code { color: var(--text); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>DataSSA / Admin</h1>
+      <div class="sub">
+        <span>管理员端：配置与复盘</span>
+        <a href="/login">切换入口</a>
+        <a href="/app">用户端</a>
+      </div>
+    </header>
+    <main>
+      <section class="card">
+        <div class="small">
+          说明：写操作需要提供管理员 token。
+        </div>
+
+        <div style="margin-top:10px;">
+          <label for="adminToken">Admin token</label>
+          <input id="adminToken" placeholder="请输入 token" />
+        </div>
+
+        <h3 style="margin:14px 0 10px 0;">数据源管理</h3>
+        <div class="row">
+          <div>
+            <label for="dsId">datasource id</label>
+            <input id="dsId" placeholder="例如 db1" />
+          </div>
+          <div>
+            <label for="dsType">type</label>
+            <select id="dsType">
+              <option value="sqlite">sqlite</option>
+              <option value="postgres">postgres（预留）</option>
+              <option value="mysql">mysql（预留）</option>
+            </select>
+          </div>
+          <div>
+            <label for="sqlitePath">sqlite_path（type=sqlite）</label>
+            <input id="sqlitePath" placeholder="./data/business.db" />
+          </div>
+          <div>
+            <label for="dsn">dsn（type=postgres/mysql，预留）</label>
+            <input id="dsn" placeholder="postgres://user:pass@host:5432/db" />
+          </div>
+        </div>
+
+        <div class="admin-actions">
+          <button id="adminRefresh" class="secondary">刷新列表</button>
+          <button id="adminUpsert">新增/更新</button>
+          <button id="adminTest" class="secondary">测试连接</button>
+          <button id="adminSetDefault" class="secondary">设为默认</button>
+          <button id="adminToggle" class="secondary">启用/禁用</button>
+          <button id="adminDelete" class="secondary">删除</button>
+        </div>
+
+        <div id="adminMsg" class="small" style="margin-top:10px;"></div>
+        <div id="dsTableWrap"></div>
+
+        <h3 style="margin:18px 0 10px 0;">权限管理</h3>
+        <div class="small">规则：未配置用户 => 全允许；配置后按 allowed_datasources 限制。</div>
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label for="permUser">user_id</label>
+            <input id="permUser" placeholder="例如 userA" />
+          </div>
+          <div>
+            <label for="permAllowed">allowed_datasources（逗号分隔；留空=全允许）</label>
+            <input id="permAllowed" placeholder="例如 dsA,dsB" />
+          </div>
+        </div>
+        <div class="admin-actions">
+          <button id="permRefresh" class="secondary">刷新权限</button>
+          <button id="permSave">保存权限</button>
+          <button id="permDelete" class="secondary">删除该用户权限</button>
+        </div>
+        <div id="permMsg" class="small" style="margin-top:10px;"></div>
+        <div id="permTableWrap"></div>
+
+        <h3 style="margin:18px 0 10px 0;">查询复盘</h3>
+        <div class="small">管理员可看全部 trace；用户端后续只看自己的（只读）。</div>
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label for="replayUser">筛选 user_id（可空）</label>
+            <input id="replayUser" placeholder="例如 userA" />
+          </div>
+          <div>
+            <label for="replayDs">筛选 datasource_id（可空）</label>
+            <input id="replayDs" placeholder="例如 db1" />
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label for="replayDate">date（可空，格式 YYYY-MM-DD）</label>
+            <input id="replayDate" placeholder="例如 2026-05-08" />
+          </div>
+          <div>
+            <label for="replayLimit">limit（默认 50）</label>
+            <input id="replayLimit" value="50" />
+          </div>
+        </div>
+        <div class="admin-actions">
+          <button id="replayRefresh" class="secondary">刷新 trace 列表</button>
+        </div>
+        <div id="replayMsg" class="small" style="margin-top:10px;"></div>
+        <div id="replayTableWrap"></div>
+        <details style="margin-top:12px;">
+          <summary>Advanced</summary>
+          <div style="margin-top:10px;">
+            <label for="replayDetail">Raw trace JSON（点击列表行加载）</label>
+            <textarea id="replayDetail" style="min-height:200px;" placeholder="这里显示原始 trace JSON"></textarea>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const dsTableWrap = $("dsTableWrap");
+      const adminMsg = $("adminMsg");
+      const permMsg = $("permMsg");
+      const permTableWrap = $("permTableWrap");
+      const replayMsg = $("replayMsg");
+      const replayTableWrap = $("replayTableWrap");
+
+      function safeId(s) { return (s || "").trim(); }
+      function parseMaybeJson(text) { try { return JSON.parse(text); } catch { return null; } }
+      function formatHttpError(text, status) {
+        const obj = parseMaybeJson(text);
+        const detail = obj && (obj.detail || obj.message);
+        return (detail ? String(detail) : (text || `HTTP ${status}`));
+      }
+      function setAdminMsg(text) { adminMsg.textContent = text || ""; }
+      function setPermMsg(text) { if (permMsg) permMsg.textContent = text || ""; }
+      function setReplayMsg(text) { if (replayMsg) replayMsg.textContent = text || ""; }
+
+      function adminTokenHeader() {
+        const t = safeId($("adminToken").value);
+        return t ? { "x-admin-token": t } : {};
+      }
+
+      function loadSavedToken() {
+        const t = localStorage.getItem("datasaa.admin_token") || "";
+        if (t) $("adminToken").value = t;
+      }
+      loadSavedToken();
+      $("adminToken").addEventListener("change", () => {
+        localStorage.setItem("datasaa.admin_token", safeId($("adminToken").value));
+      });
+
+      function escapeHtml(s) {
+        return String(s || "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll("\"", "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function renderDatasourceTable(items, def) {
+        if (!dsTableWrap) return;
+        if (!Array.isArray(items) || items.length === 0) {
+          dsTableWrap.innerHTML = `<div class="small" style="margin-top:10px;">暂无 datasource。</div>`;
+          return;
+        }
+        const rows = items.map((it) => {
+          const isDef = def && it.id === def;
+          const enabled = !!it.enabled;
+          let detail = "-";
+          if (it.type === "sqlite") {
+            detail = it.sqlite_path || "-";
+            // Avoid leaking absolute paths in UI; prefer basename or a short relative path.
+            if (detail && detail !== "-") {
+              try {
+                const parts = String(detail).split("/").filter(Boolean);
+                if (parts.length >= 2 && String(detail).startsWith("/")) {
+                  detail = parts[parts.length - 1];
+                }
+              } catch (e) {
+                // ignore
+              }
+            }
+          } else if (it.type === "postgres" || it.type === "mysql") {
+            detail = it.dsn ? "(configured)" : "-";
+          }
+          return `
+            <tr data-dsid="${it.id}">
+              <td><code>${it.id}</code> ${isDef ? `<span class="tag on">default</span>` : ``}</td>
+              <td><span class="tag ${enabled ? "on" : ""}">${enabled ? "enabled" : "disabled"}</span></td>
+              <td><code>${it.type}</code></td>
+              <td style="max-width:420px;"><code>${escapeHtml(detail)}</code></td>
+            </tr>
+          `;
+        }).join("");
+        dsTableWrap.innerHTML = `
+          <table class="table">
+            <thead>
+              <tr>
+                <th>id</th>
+                <th>状态</th>
+                <th>type</th>
+                <th>path/dsn</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div class="small" style="margin-top:8px;">提示：点击某一行可将该 datasource 自动填入表单。</div>
+        `;
+        dsTableWrap.querySelectorAll("tbody tr[data-dsid]").forEach((tr) => {
+          tr.addEventListener("click", () => {
+            const dsid = tr.getAttribute("data-dsid");
+            const it = items.find((x) => x.id === dsid);
+            if (!it) return;
+            $("dsId").value = it.id || "";
+            $("dsType").value = it.type || "sqlite";
+            $("sqlitePath").value = it.sqlite_path || "";
+            $("dsn").value = it.dsn || "";
+            setAdminMsg(`已填入：${it.id}`);
+          });
+        });
+      }
+
+      async function loadDatasources() {
+        try {
+          const r = await fetch("/admin/datasources");
+          const text = await r.text();
+          if (!r.ok) return setAdminMsg(formatHttpError(text, r.status));
+          const obj = JSON.parse(text);
+          renderDatasourceTable(obj.items || [], obj.default || null);
+          return obj;
+        } catch (e) {
+          setAdminMsg(String(e));
+        }
+      }
+
+      $("adminRefresh").addEventListener("click", async () => {
+        setAdminMsg("");
+        await loadDatasources();
+        setAdminMsg("已刷新。");
+      });
+
+      $("adminUpsert").addEventListener("click", async () => {
+        setAdminMsg("");
+        const id = safeId($("dsId").value);
+        const type = safeId($("dsType").value) || "sqlite";
+        const sqlite_path = safeId($("sqlitePath").value) || null;
+        const dsn = safeId($("dsn").value) || null;
+        if (!id) return setAdminMsg("datasource id 不能为空");
+        try {
+          const r = await fetch("/admin/datasources", {
+            method: "POST",
+            headers: { "content-type": "application/json", ...adminTokenHeader() },
+            body: JSON.stringify({ id, type, sqlite_path, dsn, enabled: true }),
+          });
+          const text = await r.text();
+          if (!r.ok) return setAdminMsg(formatHttpError(text, r.status));
+          await loadDatasources();
+          setAdminMsg("已保存。");
+        } catch (e) {
+          setAdminMsg(String(e));
+        }
+      });
+
+      $("adminTest").addEventListener("click", async () => {
+        setAdminMsg("");
+        const id = safeId($("dsId").value);
+        if (!id) return setAdminMsg("请填写 datasource id");
+        try {
+          const r = await fetch(`/admin/datasources/${encodeURIComponent(id)}/test`, { method: "POST", headers: { ...adminTokenHeader() } });
+          const text = await r.text();
+          if (!r.ok) return setAdminMsg(formatHttpError(text, r.status));
+          setAdminMsg(`测试通过：${id}`);
+        } catch (e) { setAdminMsg(String(e)); }
+      });
+
+      $("adminSetDefault").addEventListener("click", async () => {
+        setAdminMsg("");
+        const id = safeId($("dsId").value);
+        if (!id) return setAdminMsg("请填写 datasource id");
+        try {
+          const r = await fetch(`/admin/datasources/${encodeURIComponent(id)}/default`, { method: "POST", headers: { ...adminTokenHeader() } });
+          const text = await r.text();
+          if (!r.ok) return setAdminMsg(formatHttpError(text, r.status));
+          await loadDatasources();
+          setAdminMsg(`已设为默认：${id}`);
+        } catch (e) { setAdminMsg(String(e)); }
+      });
+
+      $("adminToggle").addEventListener("click", async () => {
+        setAdminMsg("");
+        const id = safeId($("dsId").value);
+        if (!id) return setAdminMsg("请填写 datasource id");
+        try {
+          const list = await loadDatasources();
+          const items = (list && list.items) || [];
+          const it = items.find((x) => x.id === id);
+          if (!it) return setAdminMsg("datasource 不存在，请先刷新列表");
+          const nextEnabled = !it.enabled;
+          const r = await fetch(`/admin/datasources/${encodeURIComponent(id)}/enabled`, {
+            method: "POST",
+            headers: { "content-type": "application/json", ...adminTokenHeader() },
+            body: JSON.stringify({ enabled: nextEnabled }),
+          });
+          const text = await r.text();
+          if (!r.ok) return setAdminMsg(formatHttpError(text, r.status));
+          await loadDatasources();
+          setAdminMsg(`${nextEnabled ? "已启用" : "已禁用"}：${id}`);
+        } catch (e) { setAdminMsg(String(e)); }
+      });
+
+      $("adminDelete").addEventListener("click", async () => {
+        setAdminMsg("");
+        const id = safeId($("dsId").value);
+        if (!id) return setAdminMsg("请填写 datasource id");
+        if (!confirm(`确认删除 datasource：${id} ?`)) return;
+        try {
+          const r = await fetch(`/admin/datasources/${encodeURIComponent(id)}`, { method: "DELETE", headers: { ...adminTokenHeader() } });
+          const text = await r.text();
+          if (!r.ok) return setAdminMsg(formatHttpError(text, r.status));
+          await loadDatasources();
+          setAdminMsg(`已删除：${id}`);
+        } catch (e) { setAdminMsg(String(e)); }
+      });
+
+      loadDatasources();
+
+      // ========== Permissions ==========
+      function renderPermTable(items) {
+        if (!permTableWrap) return;
+        if (!Array.isArray(items) || items.length === 0) {
+          permTableWrap.innerHTML = `<div class="small" style="margin-top:10px;">暂无权限配置（默认全允许）。</div>`;
+          return;
+        }
+        const rows = items.map((it) => {
+          const allowed = it.allowed_datasources;
+          const txt = Array.isArray(allowed) ? allowed.join(",") : "(ALL)";
+          return `
+            <tr data-uid="${it.user_id}">
+              <td><code>${it.user_id}</code></td>
+              <td><code>${escapeHtml(txt)}</code></td>
+              <td><code>${escapeHtml(it.updated_at || "")}</code></td>
+            </tr>
+          `;
+        }).join("");
+        permTableWrap.innerHTML = `
+          <table class="table">
+            <thead>
+              <tr><th>user_id</th><th>allowed_datasources</th><th>updated_at</th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div class="small" style="margin-top:8px;">提示：点击某一行可填入表单。</div>
+        `;
+        permTableWrap.querySelectorAll("tbody tr[data-uid]").forEach((tr) => {
+          tr.addEventListener("click", () => {
+            const uid = tr.getAttribute("data-uid");
+            const it = items.find((x) => x.user_id === uid);
+            if (!it) return;
+            $("permUser").value = it.user_id || "";
+            $("permAllowed").value = Array.isArray(it.allowed_datasources) ? it.allowed_datasources.join(",") : "";
+            setPermMsg(`已填入：${it.user_id}`);
+          });
+        });
+      }
+
+      async function loadPerms() {
+        setPermMsg("");
+        try {
+          const r = await fetch("/admin/permissions", { headers: { ...adminTokenHeader() } });
+          const text = await r.text();
+          if (!r.ok) return setPermMsg(formatHttpError(text, r.status));
+          const obj = JSON.parse(text);
+          renderPermTable(obj.items || []);
+        } catch (e) { setPermMsg(String(e)); }
+      }
+
+      $("permRefresh")?.addEventListener("click", loadPerms);
+      $("permSave")?.addEventListener("click", async () => {
+        setPermMsg("");
+        const user_id = safeId($("permUser").value);
+        if (!user_id) return setPermMsg("user_id 不能为空");
+        const raw = safeId($("permAllowed").value);
+        const allowed_datasources = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : null;
+        try {
+          const r = await fetch("/admin/permissions", {
+            method: "POST",
+            headers: { "content-type": "application/json", ...adminTokenHeader() },
+            body: JSON.stringify({ user_id, allowed_datasources }),
+          });
+          const text = await r.text();
+          if (!r.ok) return setPermMsg(formatHttpError(text, r.status));
+          await loadPerms();
+          setPermMsg("已保存。");
+        } catch (e) { setPermMsg(String(e)); }
+      });
+      $("permDelete")?.addEventListener("click", async () => {
+        setPermMsg("");
+        const user_id = safeId($("permUser").value);
+        if (!user_id) return setPermMsg("请填写 user_id");
+        if (!confirm(`确认删除该用户权限：${user_id} ?`)) return;
+        try {
+          const r = await fetch(`/admin/permissions/${encodeURIComponent(user_id)}`, {
+            method: "DELETE",
+            headers: { ...adminTokenHeader() },
+          });
+          const text = await r.text();
+          if (!r.ok) return setPermMsg(formatHttpError(text, r.status));
+          await loadPerms();
+          setPermMsg("已删除。");
+        } catch (e) { setPermMsg(String(e)); }
+      });
+      loadPerms();
+
+      // ========== Replay ==========
+      function renderReplayTable(items) {
+        if (!replayTableWrap) return;
+        if (!Array.isArray(items) || items.length === 0) {
+          replayTableWrap.innerHTML = `<div class="small" style="margin-top:10px;">暂无 trace。</div>`;
+          return;
+        }
+        const rows = items.map((it) => {
+          return `
+            <tr data-trace="${it.trace_id}">
+              <td><code>${it.ts || ""}</code></td>
+              <td><code>${it.user_id || ""}</code></td>
+              <td><code>${it.datasource_id || ""}</code></td>
+              <td style="max-width:420px;">${escapeHtml(it.question || "")}</td>
+            </tr>
+          `;
+        }).join("");
+        replayTableWrap.innerHTML = `
+          <table class="table">
+            <thead>
+              <tr><th>ts</th><th>user</th><th>datasource</th><th>question</th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div class="small" style="margin-top:8px;">提示：点击某一行加载 trace 详情。</div>
+        `;
+        replayTableWrap.querySelectorAll("tbody tr[data-trace]").forEach((tr) => {
+          tr.addEventListener("click", async () => {
+            const tid = tr.getAttribute("data-trace");
+            if (!tid) return;
+            await loadTraceDetail(tid);
+          });
+        });
+      }
+
+      async function loadTraces() {
+        setReplayMsg("");
+        const user_id = safeId($("replayUser").value) || null;
+        const datasource_id = safeId($("replayDs").value) || null;
+        const date = safeId($("replayDate").value) || null;
+        const limit = parseInt(safeId($("replayLimit").value) || "50", 10) || 50;
+        const qs = new URLSearchParams();
+        if (user_id) qs.set("user_id", user_id);
+        if (datasource_id) qs.set("datasource_id", datasource_id);
+        if (date) qs.set("date", date);
+        qs.set("limit", String(limit));
+        try {
+          const r = await fetch(`/replay/traces?${qs.toString()}`, { headers: { ...adminTokenHeader() } });
+          const text = await r.text();
+          if (!r.ok) return setReplayMsg(formatHttpError(text, r.status));
+          const obj = JSON.parse(text);
+          renderReplayTable(obj.items || []);
+        } catch (e) { setReplayMsg(String(e)); }
+      }
+
+      async function loadTraceDetail(traceId) {
+        setReplayMsg("");
+        const date = safeId($("replayDate").value) || "";
+        const qs = new URLSearchParams();
+        if (date) qs.set("date", date);
+        try {
+          const r = await fetch(`/replay/trace/${encodeURIComponent(traceId)}?${qs.toString()}`, { headers: { ...adminTokenHeader() } });
+          const text = await r.text();
+          if (!r.ok) return setReplayMsg(formatHttpError(text, r.status));
+          $("replayDetail").value = JSON.stringify(JSON.parse(text), null, 2);
+        } catch (e) { setReplayMsg(String(e)); }
+      }
+
+      $("replayRefresh")?.addEventListener("click", loadTraces);
+      loadTraces();
+    </script>
+  </body>
+</html>

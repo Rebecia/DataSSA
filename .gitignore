@@ -8,8 +8,25 @@ __pycache__/
 
 # Secrets
 .env
+.env.*
 
 # Runtime artifacts
-workspace/memory/
-reports/audit.log
-workspace/memory/config.resolved.json
+workspace/
+audit.log
+
+# Private notes (do not publish)
+docs/docs/
+docs/interview/
+
+# Generated reports (keep sources, ignore local outputs)
+reports/*.md
+
+# Local sqlite DBs created by tests/evals
+data/*.db
+!data/business.db
+
+# Logs
+*.log
+
+# Scripts (local tooling; not published)
+scripts/

@@ -1,19 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-"""
-database-agent CLI 入口。
-
-目标：
-- 把 vendored 的 nanobot 引擎集成进本项目，形成一个独立的“数据库分析助手”CLI
-- 用户侧只需要记住：`database-agent agent -m "..."`（默认读取本项目的 config.json）
-
-实现方式：
-- 把 `vendor/nanobot-main` 插入 sys.path，确保 import 的是项目内源码
-- 启动前 chdir 到项目根目录，保证 config 里相对路径（workspace、mcp_server）可用
-- 如果用户没有显式传 `--config/-c`，则自动补上 `--config <project>/config.json`
-"""
-
+import argparse
 import os
 import sys
 from pathlib import Path
@@ -22,149 +10,94 @@ from pathlib import Path
 def _project_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
-
-def _ensure_vendor_on_syspath() -> None:
-    vendor_root = _project_root() / "vendor" / "nanobot-main"
-    sys.path.insert(0, str(vendor_root))
-
-
-def _has_config_flag(argv: list[str]) -> bool:
-    return "--config" in argv or "-c" in argv
-
-
-def _inject_default_config(argv: list[str]) -> list[str]:
-    """
-    给常用子命令默认注入 `--config config.json`，让用户可以省略配置路径。
-    例如：
-      database-agent agent -m "hi"
-    会等价于：
-      database-agent agent --config ./config.json -m "hi"
-    """
-    if len(argv) < 2:
-        return argv
-    if _has_config_flag(argv):
-        return argv
-
-    subcmd = argv[1]
-    if subcmd not in {"agent", "gateway", "onboard"}:
-        return argv
-
-    cfg = str((_project_root() / "config.json").resolve())
-    return argv[:2] + ["--config", cfg] + argv[2:]
+def _reexec_into_venv() -> None:
+    """Prefer project venv interpreter if present, so users needn't activate it."""
+    venv_python = _project_root() / ".venv" / "bin" / "python"
+    try:
+        if venv_python.exists() and venv_python.is_file():
+            if Path(sys.executable).resolve() != venv_python.resolve():
+                os.execv(str(venv_python), [str(venv_python), *sys.argv])
+    except Exception:
+        return
 
 
-def _extract_option(argv: list[str], long: str, short: str | None = None) -> tuple[list[str], str | None]:
-    """
-    Extract a simple option like:
-      --mode sql
-      -m "..."
-    Returns (new_argv, value).
-    """
-    out: list[str] = []
-    value: str | None = None
-    i = 0
-    while i < len(argv):
-        a = argv[i]
-        if a == long or (short and a == short):
-            if i + 1 < len(argv):
-                value = argv[i + 1]
-                i += 2
-                continue
-        out.append(a)
-        i += 1
-    return out, value
+def _run_nl_mode(args: argparse.Namespace) -> int:
+    from datasaa_runtime.agent import AgentConfig, AgentRuntime
+    from datasaa_runtime.providers.openai_compat import OpenAICompatConfig, OpenAICompatProvider
+    from datasaa_runtime.tools.registry import ToolRegistry
+
+    workspace = os.getenv("DATASSA_WORKSPACE", str((_project_root() / "workspace").resolve()))
+    api_base = os.getenv("LLM_API_BASE", "https://api.deepseek.com")
+    api_key = os.getenv("LLM_API_KEY", "")
+    model = os.getenv("LLM_MODEL", "deepseek-reasoner")
+    if not api_key:
+        print("missing env: LLM_API_KEY", file=sys.stderr)
+        return 2
+
+    provider = OpenAICompatProvider(OpenAICompatConfig(api_base=api_base, api_key=api_key, model=model))
+    runtime = AgentRuntime(cfg=AgentConfig(workspace=workspace), provider=provider, tools=ToolRegistry())
+
+    async def _one(msg: str) -> int:
+        out = await runtime.process(session_key=args.session, user_message=msg)
+        print(out["content"])
+        return 0
+
+    import anyio
+
+    if args.message is not None:
+        return anyio.run(_one, args.message)
+
+    print("NL mode. Type 'exit' to quit.")
+    while True:
+        try:
+            line = input("NL> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if not line:
+            continue
+        if line.lower() in {"exit", "quit"}:
+            break
+        anyio.run(_one, line)
+    return 0
 
 
-def _peek_option(argv: list[str], long: str, short: str | None = None, default: str | None = None) -> str | None:
-    """Peek an option value without removing it."""
-    i = 0
-    while i < len(argv):
-        a = argv[i]
-        if a == long or (short and a == short):
-            if i + 1 < len(argv):
-                return argv[i + 1]
-        i += 1
-    return default
+def _run_api(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    uvicorn.run(
+        "server.main:app",
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+    )
+    return 0
 
 
-def main() -> None:
-    _ensure_vendor_on_syspath()
+def main(argv: list[str] | None = None) -> int:
+    _reexec_into_venv()
     os.chdir(_project_root())
-    # Ensure project root is importable (sql_mode.py etc.)
     sys.path.insert(0, str(_project_root()))
 
-    from nanobot.cli.commands import app  # noqa: PLC0415
+    p = argparse.ArgumentParser(prog="database-agent", description="DataSSA CLI (vendor-free)")
+    sub = p.add_subparsers(dest="cmd", required=True)
 
-    argv = _inject_default_config(sys.argv)
+    p_agent = sub.add_parser("agent", help="Run agent in natural-language mode")
+    p_agent.add_argument("-m", "--message", default=None, help="One-shot message (non-interactive)")
+    p_agent.add_argument("-s", "--session", default="cli:direct")
 
-    # Wrapper-only option: --mode {sql|nl}
-    argv, explicit_mode = _extract_option(argv, "--mode")
+    p_api = sub.add_parser("api", help="Run FastAPI server")
+    p_api.add_argument("--host", default="0.0.0.0")
+    p_api.add_argument("--port", type=int, default=18790)
+    p_api.add_argument("--reload", action="store_true")
 
-    # Only intercept "agent" command to implement SQL-only mode.
-    if len(argv) >= 2 and argv[1] == "agent":
-        config_arg = _peek_option(argv, "--config", "-c")
-        config_path = Path(config_arg).expanduser().resolve() if config_arg else (_project_root() / "config.json")
-        session_id = _peek_option(argv, "--session", "-s", default="cli:direct") or "cli:direct"
-        message = _peek_option(argv, "--message", "-m")
-        interactive = message is None
+    args = p.parse_args(argv)
 
-        from sql_mode import decide_mode, sql_repl  # noqa: PLC0415
-        import anyio  # noqa: PLC0415
-        from config_resolver import resolve_config  # noqa: PLC0415
-
-        mode = decide_mode(
-            config_path=config_path,
-            session_id=session_id,
-            explicit_mode=explicit_mode,
-            interactive=interactive,
-        )
-
-        if mode == "sql":
-            outcome = anyio.run(sql_repl, config_path, session_id, message)
-            # User switched to natural language mode inside SQL REPL
-            if outcome == "nl" and interactive:
-                # Natural-language mode: resolve config (inject apiKey from env/.env) and delegate to nanobot
-                resolved = resolve_config(config_path, project_root=_project_root())
-                # Replace --config argument value if present
-                if config_arg:
-                    # rewrite in-place: keep flags, only swap value
-                    rewritten: list[str] = []
-                    i = 0
-                    while i < len(argv):
-                        if argv[i] in ("--config", "-c") and i + 1 < len(argv):
-                            rewritten += [argv[i], str(resolved)]
-                            i += 2
-                            continue
-                        rewritten.append(argv[i])
-                        i += 1
-                    argv = rewritten
-                else:
-                    argv = argv[:2] + ["--config", str(resolved)] + argv[2:]
-
-                sys.argv = argv
-                app()
-            return
-
-    # Default path (natural-language or other commands): resolve config to avoid committing secrets
-    config_arg = _peek_option(argv, "--config", "-c")
-    if config_arg:
-        config_path = Path(config_arg).expanduser().resolve()
-        from config_resolver import resolve_config  # noqa: PLC0415
-        resolved = resolve_config(config_path, project_root=_project_root())
-        rewritten: list[str] = []
-        i = 0
-        while i < len(argv):
-            if argv[i] in ("--config", "-c") and i + 1 < len(argv):
-                rewritten += [argv[i], str(resolved)]
-                i += 2
-                continue
-            rewritten.append(argv[i])
-            i += 1
-        argv = rewritten
-
-    sys.argv = argv
-    app()
+    if args.cmd == "api":
+        return _run_api(args)
+    if args.cmd == "agent":
+        return _run_nl_mode(args)
+    return 2
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DataSSA App</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #111a33;
+        --text: #e7ecff;
+        --muted: #a8b3d6;
+        --border: rgba(231, 236, 255, 0.12);
+        --accent: #7aa2ff;
+        --danger: #ff6b6b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: radial-gradient(1200px 800px at 20% 0%, #18224a 0%, var(--bg) 55%);
+        color: var(--text);
+      }
+      header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(17, 26, 51, 0.55);
+        backdrop-filter: blur(8px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      header h1 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: 0.2px; }
+      header .sub { margin-top: 6px; font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+      header a { color: var(--accent); text-decoration: none; }
+      header a:hover { text-decoration: underline; }
+      main { max-width: 980px; margin: 0 auto; padding: 18px 20px 28px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+      .card {
+        background: rgba(17, 26, 51, 0.66);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+      }
+      label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+      input, textarea, select {
+        width: 100%;
+        padding: 10px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(231, 236, 255, 0.14);
+        background: rgba(9, 13, 28, 0.55);
+        color: var(--text);
+        outline: none;
+      }
+      textarea { min-height: 110px; resize: vertical; }
+      input:focus, textarea:focus, select:focus { border-color: rgba(122, 162, 255, 0.6); box-shadow: 0 0 0 3px rgba(122, 162, 255, 0.18); }
+      .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+      .btnbar { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+      button {
+        border: 1px solid rgba(122, 162, 255, 0.45);
+        background: linear-gradient(180deg, rgba(122, 162, 255, 0.25), rgba(122, 162, 255, 0.12));
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button.secondary { border-color: rgba(231, 236, 255, 0.16); background: rgba(9, 13, 28, 0.35); font-weight: 550; }
+      button:disabled { opacity: 0.55; cursor: not-allowed; }
+      .hint { font-size: 12px; color: var(--muted); }
+      .err { font-size: 12px; color: var(--danger); margin-top: 10px; white-space: pre-wrap; }
+      .chat { display: flex; flex-direction: column; gap: 10px; }
+      .msg {
+        border: 1px solid rgba(231, 236, 255, 0.12);
+        background: rgba(9, 13, 28, 0.35);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+      .msg .meta { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: flex; gap: 10px; flex-wrap: wrap; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(231, 236, 255, 0.14);
+        background: rgba(9, 13, 28, 0.25);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .pill code { color: var(--text); }
+      .msg pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      details { margin-top: 10px; }
+      summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+      code { color: var(--text); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>DataSSA / App</h1>
+      <div class="sub">
+        <span>用户端：只读查询</span>
+        <a href="/login">切换账号</a>
+      </div>
+    </header>
+    <main>
+      <div class="grid">
+        <section class="card">
+          <div class="row3">
+            <div>
+              <label for="userId">user_id（只允许字母数字、_、-）</label>
+              <input id="userId" placeholder="例如 userA" />
+            </div>
+            <div>
+              <label for="sessionId">session（只允许字母数字、_、-）</label>
+              <input id="sessionId" value="s1" />
+            </div>
+            <div>
+              <label for="datasource">datasource</label>
+              <select id="datasource">
+                <option value="db1">db1</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-top: 12px;">
+            <label for="message">问题（自然语言）</label>
+            <textarea id="message">users 表有多少用户？请给出 SQL 和结果。</textarea>
+          </div>
+
+          <div class="btnbar">
+            <button id="sendBtn">发送</button>
+            <button id="clearBtn" class="secondary">清空对话</button>
+            <span class="hint">session_id 固定格式：<code>{user_id}:{session}</code></span>
+          </div>
+          <div id="error" class="err" style="display:none;"></div>
+        </section>
+
+        <section class="card">
+          <div class="chat" id="chat"></div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const chatEl = $("chat");
+      const errEl = $("error");
+      const sendBtn = $("sendBtn");
+      const clearBtn = $("clearBtn");
+      const dsSel = $("datasource");
+
+      function safeId(s) { return (s || "").trim(); }
+      function isSafeId(v) { return /^[A-Za-z0-9_-]{1,64}$/.test(v || ""); }
+
+      function showError(text) {
+        if (!text) { errEl.style.display = "none"; errEl.textContent = ""; return; }
+        errEl.style.display = "block";
+        try {
+          const obj = JSON.parse(text);
+          const detail = obj && (obj.detail || obj.message);
+          errEl.textContent = detail ? String(detail) : text;
+        } catch (e) {
+          errEl.textContent = text;
+        }
+      }
+
+      function addMessage(role, payload) {
+        const wrap = document.createElement("div");
+        wrap.className = "msg";
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = role === "user" ? "USER" : "ASSISTANT";
+        wrap.appendChild(meta);
+        const pre = document.createElement("pre");
+        pre.textContent = payload;
+        wrap.appendChild(pre);
+        chatEl.prepend(wrap);
+      }
+
+      function addAssistantRich(resp) {
+        const wrap = document.createElement("div");
+        wrap.className = "msg";
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        const warnText = (resp.warnings || []).join("; ");
+        meta.innerHTML = `<span class="pill">status <code>${warnText ? "warning" : "ok"}</code></span>`;
+        wrap.appendChild(meta);
+
+        const pre = document.createElement("pre");
+        pre.textContent = resp.answer || "";
+        wrap.appendChild(pre);
+
+        // SQL: fold by default
+        if (resp.sql) {
+          const details = document.createElement("details");
+          details.open = false;
+          const summary = document.createElement("summary");
+          summary.textContent = "查看 SQL";
+          const sqlPre = document.createElement("pre");
+          sqlPre.textContent = resp.sql || "";
+          details.appendChild(summary);
+          details.appendChild(sqlPre);
+          wrap.appendChild(details);
+        }
+
+        chatEl.prepend(wrap);
+      }
+
+      async function loadDatasources() {
+        try {
+          const userId = safeId($("userId").value);
+          const r = await fetch("/admin/datasources");
+          const text = await r.text();
+          if (!r.ok) return;
+          const obj = JSON.parse(text);
+          const items = obj.items || [];
+          const def = obj.default || null;
+          let allowed = null;
+          if (userId && /^[A-Za-z0-9_-]{1,64}$/.test(userId)) {
+            try {
+              const pr = await fetch(`/permissions/${encodeURIComponent(userId)}`);
+              const pt = await pr.text();
+              if (pr.ok) {
+                const pobj = JSON.parse(pt);
+                allowed = pobj.allowed_datasources || null;
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
+
+          // Only show enabled datasources that have a usable sqlite_path for sqlite.
+          const enabledItems = items.filter((it) => {
+            if (!it || it.enabled === false) return false;
+            if (it.type === "sqlite") return !!(it.sqlite_path || "").trim();
+            return false; // postgres/mysql reserved (not supported for /chat)
+          });
+          const filtered = Array.isArray(allowed) ? enabledItems.filter((it) => allowed.includes(it.id)) : enabledItems;
+          dsSel.innerHTML = "";
+          for (const it of filtered) {
+            const opt = document.createElement("option");
+            opt.value = it.id;
+            opt.textContent = it.display_name ? `${it.id} (${it.display_name})` : it.id;
+            dsSel.appendChild(opt);
+          }
+          if (def && (!Array.isArray(allowed) || allowed.includes(def))) dsSel.value = def;
+          if (!dsSel.value && filtered.length) dsSel.value = filtered[0].id;
+        } catch (e) {
+          // ignore
+        }
+      }
+      loadDatasources();
+
+      function loadUser() {
+        const u = localStorage.getItem("datasaa.user_id") || "";
+        if (u) $("userId").value = u;
+      }
+      loadUser();
+      // userId 变化时刷新 datasource（按权限过滤）
+      $("userId").addEventListener("change", loadDatasources);
+
+      async function send() {
+        showError("");
+        const userId = safeId($("userId").value);
+        const sessionId = safeId($("sessionId").value);
+        if (!isSafeId(userId) || !isSafeId(sessionId)) {
+          showError("user_id/session 不合法：仅允许字母数字、下划线(_)与短横线(-)，长度 1..64");
+          return;
+        }
+        localStorage.setItem("datasaa.user_id", userId);
+
+        const datasourceId = safeId(dsSel.value);
+        const message = $("message").value || "";
+        const sid = `${userId}:${sessionId}`;
+
+        addMessage("user", message);
+        sendBtn.disabled = true;
+
+        try {
+          const r = await fetch("/chat", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ session_id: sid, datasource_id: datasourceId, message }),
+          });
+          const text = await r.text();
+          if (!r.ok) { showError(text || `HTTP ${r.status}`); return; }
+          addAssistantRich(JSON.parse(text));
+        } catch (e) {
+          showError(String(e));
+        } finally {
+          sendBtn.disabled = false;
+        }
+      }
+
+      sendBtn.addEventListener("click", send);
+      clearBtn.addEventListener("click", () => { chatEl.innerHTML = ""; showError(""); });
+      $("message").addEventListener("keydown", (ev) => { if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") send(); });
+    </script>
+  </body>
+</html>

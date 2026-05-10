@@ -3,14 +3,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # Keep container running so you can open multiple exec sessions for concurrency testing.
-    command: ["sh", "-lc", "sleep infinity"]
-    tty: true
-    stdin_open: true
+    command: ["database-agent", "api", "--host", "0.0.0.0", "--port", "18790"]
+    ports:
+      - "18790:18790"
     environment:
-      # LLM provider (if you keep apiKey in config.json, this is optional)
-      - DEEPSEEK_API_KEY=<your api key>
-      # Database settings (also overridden by tools.mcpServers.database.env in config.json)
+      # LLM provider (OpenAI-compatible)
+      - LLM_API_BASE=https://api.deepseek.com
+      - LLM_MODEL=deepseek-reasoner
+      - LLM_API_KEY=<your api key>
+      # Database settings (used by the MCP database server)
       - DB_PATH=/app/data/business.db
       - DB_READONLY=true
       - QUERY_TIMEOUT=30

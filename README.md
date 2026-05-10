@@ -1,37 +1,57 @@
 # DataSSA
 
-  在实际生产中，数据相关部分门常常需要查询数据库做分析，但直接给每个人开数据库直连权限存在较大数据污染风险。
-  所以我们需要一种安全的方式，这里我设计了基于 Nanobot 框架的 LLM Agent 的数据分析工具，它在帮团队查询数据的同时也能确保数据库安全。
+面向可信查询的多数据库 Agent Runtime：将一次数据提问标准化为可控闭环
+`NL → SQL → 安全校验 → 执行 → 结果解读`，并落盘 **trace（可回放）** 与 **audit（可审计）**。
+
+# 功能概览
+
+> 仓库内置静态前端页面：`/login`、`/app`、`/admin`；后端为 FastAPI。
+
+<p align="left">
+  <img src="docs/assets/login.jpg" width="360" />
+  <img src="docs/assets/app.jpg" width="360" />
+  <img src="docs/assets/admin.jpg" width="360" />
+</p>
+
+> 如需更新截图，直接替换 `docs/assets/login.jpg`、`docs/assets/app.jpg`、`docs/assets/admin.jpg`。
+
+## Capabilities
+
+- **Safe, read-only queries**：强制只允许 `SELECT/WITH`，拦截注入/多语句/危险关键字（执行面不可绕过）
+- **Multi-datasource runtime**：每个数据源独立 MCP 子进程与并发配额，降低串库与互相拖垮风险
+- **Traceable & auditable**：trace（事件流）+ audit（执行面日志）通过 `trace_id` 关联，支持回放与审计
 
 ---
-## 项目特点
+
+## Highlights
 
 - **安全边界清晰**：设置四层安全边界：
+
   - SQL 语句解析，只允许 SELECT 和 WITH 开头的查询；
   - 危险关键字检测，拦截 DROP、DELETE、UPDATE 等 14 个危险关键字；
   - 注入模式检测，用正则匹配 UNION SELECT、OR 1=1 等 12 种常见注入模式；
   - 多语句检测，禁止分号分隔的多语句执行。
-  
 - **资源限制**：查询超时 30 秒自动中断，结果限制 1000 行，并发控制最多 5 个查询。
-
 - **完整审计日志**：每次查询都记录 SQL、执行时间、返回行数；被拦截的危险查询也会记录，用于安全分析。
-
 - **循最小权限原则**：只暴露 4 个工具——query_database、list_tables、describe_table、get_statistics，每个工具职责明确、边界清晰。
-
 - **多模式设计**：项目提供 SQL + 自然语言双模式。SQL 模式用于快速检索，延迟低，减少不必要的 token 消耗；自然语言模式可以更好地用于探索性问题，生成分析报告等。
 
 ---
 
-## 主要文件
+## Repository layout
 
-- `config.json`：运行配置（模型、workspace、MCP server 等）
-- `workspace/`：Agent 工作区
+- `server/main.py`：FastAPI（`/login` `/app` `/admin` `/chat` `/replay/*`）
+- `datasaa_runtime/agent.py`：AgentCore（会话/记忆/tool-call loop/trace）
+- `datasaa_runtime/skills/safe_query.py`：可信查询闭环 skill（schema→SQL→QueryBus→verify→report）
+- `datasaa_runtime/querybus.py`：执行平面（统一 `validate_sql → query_database`，并发隔离）
+- `mcp_server/db_server.py`：只读 DB MCP Server（强制安全校验 + 审计日志）
 - `data/`：示例数据库/数据文件
-- `reports/`：审计日志与分析输出（默认 `reports/audit.log`）
+- `workspace/`：运行时状态（sessions/traces/memory/datasources/permissions）
+- `audit.log`：审计日志（运行时生成）
 
 ---
 
-## 快速开始
+## Quickstart
 
 ### 1) 安装依赖
 
@@ -42,68 +62,47 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2) 配置 LLM Key
-
-在 `config.json` 里填写你要用的 provider 的 `apiKey`，：
-
-```json
-{
-  "agents": { "defaults": { "provider": "deepseek" } },
-  "providers": { "deepseek": { "apiKey": "sk-xxx", "apiBase": "https://api.deepseek.com" } }
-}
-```
-
-### 3) 配置数据库连接
-
-数据库访问通过 `mcp_server/db_server.py` 提供的 MCP 工具完成，你需要在 `config.json` 中配置：
-
-- `command`：启动命令（通常 `python3`）
-- `args`：MCP server 脚本路径
-- `env.DB_PATH`：SQLite DB 文件路径
-
-示例：
-
-```json
-{
-  "tools": {
-    "mcpServers": {
-      "database": {
-        "command": "python3",
-        "args": ["mcp_server/db_server.py"],
-        "env": {
-          "DB_PATH": "./data/business.db",
-          "QUERY_TIMEOUT": "30",
-          "MAX_ROWS": "1000",
-          "DB_READONLY": "true"
-        },
-        "description": "安全的数据库查询服务"
-      }
-    }
-  }
-}
-```
-
-### 4) 启动交互（会话内选择模式）
+### 2) Configure database (sqlite demo)
 
 ```bash
-./bin/database-agent agent
+export DB_PATH="./data/business.db"
 ```
 
-也可以强制指定模式：
+### 3) Start server (test-mode)
+
+test-mode 不依赖外部 LLM，用于本地演示/回归/评测：
 
 ```bash
-./bin/database-agent agent --mode sql
-./bin/database-agent agent --mode nl
+export DATASSA_TEST_MODE=1
+export DATASSA_ADMIN_TOKEN=devtoken
+./bin/database-agent api --host 127.0.0.1 --port 18790
 ```
 
-### 5) SQL 模式常用命令（示例）
+Open:
 
-进入 SQL 模式后可用：
+```bash
+http://127.0.0.1:18790/login
+```
 
-- `/tables`：列出表
-- `/desc users`：查看表结构
-- `/stats users`：查看基础统计
-- 直接输入 `SELECT ...`：执行查询（只读）
+Screenshots:
+
+- `docs/assets/login.jpg`
+- `docs/assets/app.jpg`
+- `docs/assets/admin.jpg`
+
+### 4) Start server (LLM mode)
+
+```bash
+export LLM_API_KEY="sk-xxx"
+export LLM_API_BASE="https://api.deepseek.com"
+export LLM_MODEL="deepseek-reasoner"
+unset DATASSA_TEST_MODE
+./bin/database-agent api --host 127.0.0.1 --port 18790
+```
+
+### 5) Evaluation
+
+> 多数据源在 `/admin` 页面配置（落盘到 `workspace/datasources/index.json`），并由 MCP 子进程按数据源策略启动。
 
 ---
 
@@ -114,7 +113,7 @@ Docker 下 DB 文件通过 volume 挂载到容器内 `/app/data`
 ```bash
 cd database-agent
 docker compose up -d --build
-docker compose exec -it database-agent ./bin/database-agent agent --mode sql
+docker compose exec -it database-agent ./bin/database-agent api --host 0.0.0.0 --port 18790
 ```
 
 ---

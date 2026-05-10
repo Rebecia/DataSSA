@@ -1,8 +1,0 @@
-{"timestamp": "2026-04-13T15:11:42.232782", "type": "query", "sql": "LIST TABLES", "success": true, "duration_ms": 0, "rows_returned": 2, "error": ""}
-{"timestamp": "2026-04-13T15:12:18.583183", "type": "query", "sql": "DESCRIBE users", "success": true, "duration_ms": 0, "rows_returned": 0, "error": ""}
-{"timestamp": "2026-04-13T15:17:36.742397", "type": "blocked", "sql": "PRAGMA database_list", "reason": "只允许 SELECT 查询语句"}
-{"timestamp": "2026-04-13T15:17:41.696333", "type": "query", "sql": "SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view')", "success": true, "duration_ms": 18.24, "rows_returned": 3, "error": ""}
-{"timestamp": "2026-04-13T15:22:41.247557", "type": "query", "sql": "SELECT * FROM pragma_database_list", "success": true, "duration_ms": 24.81, "rows_returned": 1, "error": ""}
-{"timestamp": "2026-04-13T15:22:59.341037", "type": "blocked", "sql": "SELECT 'users' as table_name, COUNT(*) as row_count FROM users\nUNION ALL\nSELECT 'orders', COUNT(*) FROM orders", "reason": "检测到可疑的注入模式"}
-{"timestamp": "2026-04-13T15:25:52.264859", "type": "query", "sql": "SELECT * FROM users LIMIT 10", "success": true, "duration_ms": 81.2, "rows_returned": 5, "error": ""}
-{"timestamp": "2026-04-13T16:28:13.799544", "type": "query", "sql": "SELECT * FROM users", "success": true, "duration_ms": 106.99, "rows_returned": 5, "error": ""}

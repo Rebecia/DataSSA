@@ -19,6 +19,10 @@ db_server.py - 安全的数据库查询 MCP Server
 - 给“数据分析助手 Agent”提供一个安全的只读查询接口
 - 用最少的能力满足常见分析流程：先看有哪些表 → 看字段结构 → 再查数据 → 看统计信息
 - 默认以 SQLite 为示例（也便于本地复现），并通过多层校验尽量降低误用风险
+
+关于 trace_id：
+- DataSSA 在上游会生成 trace_id，并通过 MCP tool 的入参透传到本 server
+- 本 server 会把 trace_id 写入 audit.log 的 meta 中，用于“trace ↔ audit”关联
 """
 
 import json
@@ -54,6 +58,7 @@ class Config:
     MAX_CONCURRENT = int(os.getenv("MAX_CONCURRENT", "5"))
     AUDIT_LOG_PATH = os.getenv("AUDIT_LOG_PATH", "audit.log")
     READONLY = os.getenv("DB_READONLY", "true").lower() == "true"
+    DATASSA_DATASOURCE_ID = os.getenv("DATASSA_DATASOURCE_ID", "")
 
 
 # ==================== 审计日志 ====================
@@ -73,6 +78,7 @@ class AuditLogger:
         duration_ms: float,
         rows_returned: int = 0,
         error: str = "",
+        meta: dict | None = None,
     ):
         """记录一次查询（成功/失败、耗时、返回行数等）。"""
         entry = {
@@ -84,9 +90,11 @@ class AuditLogger:
             "rows_returned": rows_returned,
             "error": error,
         }
+        if meta:
+            entry["meta"] = meta
         self._write(entry)
 
-    def log_blocked(self, sql: str, reason: str):
+    def log_blocked(self, sql: str, reason: str, meta: dict | None = None):
         """记录一次被安全策略拦截的查询。"""
         entry = {
             "timestamp": datetime.now().isoformat(),
@@ -94,6 +102,8 @@ class AuditLogger:
             "sql": sql,
             "reason": reason,
         }
+        if meta:
+            entry["meta"] = meta
         self._write(entry)
 
     def _write(self, entry: dict):
@@ -405,6 +415,7 @@ class DatabaseMCPServer:
         self.db = DatabaseManager(Config.DB_PATH, Config.READONLY)
         self.security = SQLSecurityChecker()
         self.audit = AuditLogger(Config.AUDIT_LOG_PATH)
+        self._datasource_id = Config.DATASSA_DATASOURCE_ID or None
 
     def handle_request(self, request: dict) -> dict | None:
         """处理 JSON-RPC 请求，根据 method 分发到对应 handler。
@@ -453,6 +464,24 @@ class DatabaseMCPServer:
         return {
             "tools": [
                 {
+                    "name": "validate_sql",
+                    "description": (
+                        "执行 SQL 静态安全校验（不执行查询）。"
+                        "用于在真正执行前提前给出是否允许/风险提示。"
+                    ),
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "sql": {
+                                "type": "string",
+                                "description": "要校验的 SQL（仅允许 SELECT/WITH）",
+                            },
+                            "trace_id": {"type": "string", "description": "可选：trace_id（用于审计关联）"},
+                        },
+                        "required": ["sql"],
+                    },
+                },
+                {
                     "name": "query_database",
                     "description": (
                         "执行只读 SQL 查询。只允许 SELECT 语句，"
@@ -470,6 +499,7 @@ class DatabaseMCPServer:
                                 "description": "最大返回行数（默认1000）",
                                 "default": 1000,
                             },
+                            "trace_id": {"type": "string", "description": "可选：trace_id（用于审计关联）"},
                         },
                         "required": ["sql"],
                     },
@@ -479,7 +509,7 @@ class DatabaseMCPServer:
                     "description": "列出数据库中的所有表和视图，包含行数统计",
                     "inputSchema": {
                         "type": "object",
-                        "properties": {},
+                        "properties": {"trace_id": {"type": "string", "description": "可选：trace_id（用于审计关联）"}},
                     },
                 },
                 {
@@ -492,6 +522,7 @@ class DatabaseMCPServer:
                                 "type": "string",
                                 "description": "表名",
                             },
+                            "trace_id": {"type": "string", "description": "可选：trace_id（用于审计关联）"},
                         },
                         "required": ["table_name"],
                     },
@@ -509,6 +540,7 @@ class DatabaseMCPServer:
                                 "type": "string",
                                 "description": "表名",
                             },
+                            "trace_id": {"type": "string", "description": "可选：trace_id（用于审计关联）"},
                         },
                         "required": ["table_name"],
                     },
@@ -523,6 +555,7 @@ class DatabaseMCPServer:
         arguments = params.get("arguments", {})
 
         tool_handlers = {
+            "validate_sql": self._tool_validate_sql,
             "query_database": self._tool_query_database,
             "list_tables": self._tool_list_tables,
             "describe_table": self._tool_describe_table,
@@ -560,10 +593,13 @@ class DatabaseMCPServer:
         """query_database 工具：先安全检查，再执行查询，最后审计记录。"""
         sql = args.get("sql", "")
         max_rows = args.get("max_rows", Config.MAX_ROWS)
+        trace_id = args.get("trace_id", "") or ""
+        trace_id = trace_id.strip() if isinstance(trace_id, str) else ""
 
         is_safe, reason = self.security.check(sql)
         if not is_safe:
-            self.audit.log_blocked(sql, reason)
+            meta = {"tool": "query_database", "datasource_id": self._datasource_id, **({"trace_id": trace_id} if trace_id else {})}
+            self.audit.log_blocked(sql, reason, meta=meta)
             raise ValueError(f"安全检查未通过: {reason}")
 
         result = self.db.execute_query(sql, max_rows)
@@ -574,28 +610,89 @@ class DatabaseMCPServer:
             result["success"],
             result["duration_ms"],
             result["row_count"],
+            meta={
+                "tool": "query_database",
+                "datasource_id": self._datasource_id,
+                "truncated": result.get("truncated"),
+                "max_rows": result.get("max_rows"),
+                **({"trace_id": trace_id} if trace_id else {}),
+            },
         )
 
         return result
 
+    def _tool_validate_sql(self, args: dict) -> dict:
+        """validate_sql 工具：只做静态安全校验，不执行 SQL。"""
+        sql = args.get("sql", "")
+        trace_id = args.get("trace_id", "") or ""
+        trace_id = trace_id.strip() if isinstance(trace_id, str) else ""
+        is_safe, reason = self.security.check(sql)
+
+        normalized = (sql or "").strip()
+        upper = normalized.upper()
+
+        # 轻量提示：是否缺少 LIMIT / WHERE（不作为拦截规则，仅提示）
+        warnings: list[str] = []
+        if is_safe:
+            if " LIMIT " not in f" {upper} ":
+                warnings.append("建议加 LIMIT（防止返回结果过大）")
+            if " WHERE " not in f" {upper} ":
+                warnings.append("建议加 WHERE/时间范围（避免全表扫描）")
+
+        if not is_safe:
+            # 对 validate 也记录拦截（便于安全分析）
+            meta = {"tool": "validate_sql", "datasource_id": self._datasource_id, **({"trace_id": trace_id} if trace_id else {})}
+            self.audit.log_blocked(sql, reason, meta=meta)
+        else:
+            meta = {"tool": "validate_sql", "datasource_id": self._datasource_id, **({"trace_id": trace_id} if trace_id else {})}
+            self.audit.log_query("VALIDATE SQL", True, 0, 0, meta=meta)
+
+        return {
+            "is_safe": is_safe,
+            "reason": reason,
+            "warnings": warnings,
+            "policy": {
+                "timeout_s": Config.QUERY_TIMEOUT,
+                "max_rows": Config.MAX_ROWS,
+                "readonly": Config.READONLY,
+            },
+        }
+
     def _tool_list_tables(self, args: dict) -> dict:
         """list_tables 工具：列出表/视图，并记录审计。"""
+        trace_id = args.get("trace_id", "") or ""
+        trace_id = trace_id.strip() if isinstance(trace_id, str) else ""
         tables = self.db.list_tables()
-        self.audit.log_query("LIST TABLES", True, 0, len(tables))
+        meta = {"tool": "list_tables", "datasource_id": self._datasource_id, **({"trace_id": trace_id} if trace_id else {})}
+        self.audit.log_query("LIST TABLES", True, 0, len(tables), meta=meta)
         return {"tables": tables, "count": len(tables)}
 
     def _tool_describe_table(self, args: dict) -> dict:
         """describe_table 工具：返回字段/索引信息。"""
         table_name = args.get("table_name", "")
+        trace_id = args.get("trace_id", "") or ""
+        trace_id = trace_id.strip() if isinstance(trace_id, str) else ""
         result = self.db.describe_table(table_name)
-        self.audit.log_query(f"DESCRIBE {table_name}", True, 0)
+        self.audit.log_query(
+            f"DESCRIBE {table_name}",
+            True,
+            0,
+            meta={"tool": "describe_table", "table": table_name, "datasource_id": self._datasource_id, **({"trace_id": trace_id} if trace_id else {})},
+        )
         return result
 
     def _tool_get_statistics(self, args: dict) -> dict:
         """get_statistics 工具：返回表总行数 + 每列统计（distinct/null/min/max/avg）。"""
         table_name = args.get("table_name", "")
+        trace_id = args.get("trace_id", "") or ""
+        trace_id = trace_id.strip() if isinstance(trace_id, str) else ""
         result = self.db.get_statistics(table_name)
-        self.audit.log_query(f"STATISTICS {table_name}", True, 0)
+        self.audit.log_query(
+            f"STATISTICS {table_name}",
+            True,
+            0,
+            meta={"tool": "get_statistics", "table": table_name, "datasource_id": self._datasource_id, **({"trace_id": trace_id} if trace_id else {})},
+        )
         return result
 
     @staticmethod
