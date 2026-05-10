@@ -7,13 +7,12 @@
 
 > 仓库内置静态前端页面：`/login`、`/app`、`/admin`；后端为 FastAPI。
 
-<p align="left">
+<p align="center">
   <img src="docs/assets/login.jpg" width="360" />
   <img src="docs/assets/app.jpg" width="360" />
   <img src="docs/assets/admin.jpg" width="360" />
 </p>
 
-> 如需更新截图，直接替换 `docs/assets/login.jpg`、`docs/assets/app.jpg`、`docs/assets/admin.jpg`。
 
 ## Capabilities
 
