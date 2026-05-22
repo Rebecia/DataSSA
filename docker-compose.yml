@@ -1,12 +1,52 @@
 services:
-  database-agent:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: datasaa
+      MYSQL_USER: datasaa
+      MYSQL_PASSWORD: datasaa
+      MYSQL_ROOT_PASSWORD: datasaa_root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pdatasaa_root"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
     build:
       context: .
       dockerfile: Dockerfile
     command: ["database-agent", "api", "--host", "0.0.0.0", "--port", "18790"]
     ports:
       - "18790:18790"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      # Week 1 app config (see server/config.py)
+      - DATABASE_URL=mysql+pymysql://datasaa:datasaa@mysql:3306/datasaa
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=dev-secret-change-me
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRE_MINUTES=1440
+      - ALLOW_REGISTER=1
       # LLM provider (OpenAI-compatible)
       - LLM_API_BASE=https://api.deepseek.com
       - LLM_MODEL=deepseek-reasoner
@@ -22,3 +62,6 @@ services:
       - ./data:/app/data
       - ./workspace:/app/workspace
       - ./reports:/app/reports
+
+volumes:
+  mysql_data:

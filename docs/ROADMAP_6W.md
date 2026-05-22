@@ -112,26 +112,16 @@ flowchart LR
 
 ## 4. 六周排期
 
+> **说明：** 第 1 周已拆为 `docs/week1/step-*.md`（一步一步做）。第 2–6 周目前仅保留周目标，实施前再按同样方式拆 `docs/week2/` …
+
 ### 第 1 周 — 底座 + MySQL + JWT + React 脚手架
 
-**交付**
+> **按步执行（共 12 步）：** [docs/week1/README.md](./week1/README.md)  
+> 索引：[WEEK1_TASKS.md](./WEEK1_TASKS.md)
 
-- `server/` 分层：`config`, `api/v1`, `services`, `deps`, `middleware`
-- `docker-compose`：`mysql`, `redis`, `api`（worker/web 可先占位）
-- Alembic：`users`（username, password_hash, role: `user` | `admin`）
-- API：`POST /api/v1/auth/register`（需 `ALLOW_REGISTER=1`）、`/login`、`GET /me`
-- React：Vite 工程、登录页、axios + token、路由守卫
+**本周结果：** MySQL + Redis + JWT 登录 + React 占位页；步骤 8 后端 checkpoint 通过后再做前端。
 
-**验收**
-
-- `docker compose up` 后注册/登录成功
-- 无 token 访问受保护接口返回 401
-
-**精读建议**
-
-- `server/deps.py`（当前用户）
-- `server/api/v1/auth.py`
-- JWT / Settings 配置
+**精读（步骤 12）：** `server/deps.py`、`server/api/v1/auth.py`、`server/config.py`
 
 ---
 
@@ -271,10 +261,9 @@ flowchart LR
 
 ```text
 阶段：第 N 周（见 docs/ROADMAP_6W.md）
-范围：只做该周交付项，禁止扩散到 Roadmap「本期不做」
-技术：React + JWT + MySQL + Redis；第 N 周特定项：...
-验收：<粘贴该周验收>
-完成后请给出：变更文件、API 表、compose 服务、精读 3 文件、自测 checklist
+执行：只做 docs/weekN/step-XX-xxx.md 的「当前一步」（第1周已拆好）
+禁止：扩散到 Roadmap「本期不做」
+完成后：本步完成标志打勾 + 变更文件列表
 ```
 
 ---
@@ -334,7 +323,9 @@ flowchart LR
 | 文件 | 说明 |
 |------|------|
 | `docs/ROADMAP_6W.md` | 本文档 |
-| `docs/learning/week1.md` … `week6.md` | 每周笔记（第 1 周起自行创建） |
+| `docs/week1/README.md` | 第 1 周逐步执行（主入口） |
+| `docs/WEEK1_TASKS.md` | 第 1 周索引（指向 week1/） |
+| `docs/learning/week1.md` … `week6.md` | 每周笔记 |
 | `docs/architecture.md` | 第 6 周补充架构说明 |
 | `docs/PROJECT_STORY.md` | 第 6 周补充面试叙事 |
 | `docs/docs/项目逻辑复盘.md` | 现有 Runtime 逻辑导览 |
