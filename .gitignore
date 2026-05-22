@@ -17,6 +17,7 @@ audit.log
 # Private notes (do not publish)
 docs/docs/
 docs/interview/
+database-agent/docs/ROADMAP_6W.md
 
 # Generated reports (keep sources, ignore local outputs)
 reports/*.md
