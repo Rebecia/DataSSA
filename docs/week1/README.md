@@ -52,6 +52,7 @@
 |------|------|
 | 1 | [verify/step-01-docker.md](./verify/step-01-docker.md) |
 | 2 | [verify/step-02-config.md](./verify/step-02-config.md) |
+| 3 | [verify/step-03-database.md](./verify/step-03-database.md) |
 
 ## 附录
 

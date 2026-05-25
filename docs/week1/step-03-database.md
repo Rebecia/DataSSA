@@ -25,8 +25,10 @@
 
 ## 本步完成标志
 
-- [ ] 本地能 `from server.db.models import User` 无报错
-- [ ] **尚未要求** MySQL 里已有表（步骤 4 迁移）
+**验收手册：** [verify/step-03-database.md](./verify/step-03-database.md)
+
+- [x] 本地能 `from server.db.models import User` 无报错（见 `server/db/models.py`）
+- [x] **尚未要求** MySQL 里已有表（步骤 4 迁移）
 
 ## 下一步
 
