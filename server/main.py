@@ -21,6 +21,8 @@ from datasaa_runtime.providers.openai_compat import OpenAICompatConfig, OpenAICo
 from datasaa_runtime.querybus import QueryBus
 from datasaa_runtime.skills.safe_query import SafeQueryTool
 from datasaa_runtime.tools.registry import ToolRegistry
+from server.api.v1.router import router as api_v1_router
+from server.middleware import apply_middleware
 
 
 def _parse_tool_set(value: str | None) -> set[str]:
@@ -214,6 +216,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="DataSSA API", version="0.1.0", lifespan=lifespan)
+apply_middleware(app)
+app.include_router(api_v1_router)
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 

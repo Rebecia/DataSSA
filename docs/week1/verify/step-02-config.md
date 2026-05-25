@@ -49,9 +49,9 @@ docker compose config | grep -E 'DATABASE_URL|REDIS_URL|JWT_SECRET|ALLOW_REGISTE
 ## 4. 验收打勾
 
 ```text
-[ ] pip install 成功
-[ ] python -c "from server.config import get_settings" 成功
-[ ] docker compose config 能看到 api 的 DATABASE_URL / REDIS_URL（Docker 可用时）
+[x] pip install 成功
+[x] python -c "from server.config import get_settings" 成功
+[x] docker compose config 能看到 api 的 DATABASE_URL / REDIS_URL（Docker 可用时）
 ```
 
 通过后回复：**步骤 2 通过**，或继续 **步骤 3**。

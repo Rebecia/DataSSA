@@ -1,6 +1,6 @@
 # 步骤 1 验收手册（新设备 / Docker 刚装好时用）
 
-> 对应：[step-01-docker.md](../step-01-docker.md)  
+> 对应：[step-01-docker.md](../step-01-docker.md)
 > 代码已在仓库中；本文仅记录**你怎么测**，安装 Docker 后按顺序执行即可。
 
 ---
@@ -32,8 +32,8 @@ docker compose ps
 
 **期望：**
 
-| 服务 | STATE |
-|------|--------|
+| 服务  | STATE                   |
+| ----- | ----------------------- |
 | mysql | running（healthy 更佳） |
 | redis | running（healthy 更佳） |
 
@@ -57,11 +57,11 @@ docker compose exec mysql mysqladmin ping -h 127.0.0.1 -uroot -pdatasaa_root
 
 ## 4. 常见问题
 
-| 现象 | 处理 |
-|------|------|
-| `port is already allocated`（3306/6379） | 改 `docker-compose.yml` 端口映射，如 `"3307:3306"`、`"6380:6379"` |
-| `command not found: docker` | 安装 Docker 并重启终端 |
-| mysql 反复重启 | `docker compose logs mysql` 查看错误；删卷重来：`docker compose down -v`（会清空库数据） |
+| 现象                                       | 处理                                                                                         |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `port is already allocated`（3306/6379） | 改 `docker-compose.yml` 端口映射，如 `"3307:3306"`、`"6380:6379"`                      |
+| `command not found: docker`              | 安装 Docker 并重启终端                                                                       |
+| mysql 反复重启                             | `docker compose logs mysql` 查看错误；删卷重来：`docker compose down -v`（会清空库数据） |
 
 ---
 

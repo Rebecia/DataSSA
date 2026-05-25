@@ -100,10 +100,10 @@ alembic downgrade base
 ## 6. 验收打勾
 
 ```text
-[ ] alembic upgrade head 成功
-[ ] SHOW TABLES 能看到 users
-[ ] DESCRIBE users 字段正确
-[ ] （可选）seed 后 users 表有 admin 行
+[x] alembic upgrade head 成功
+[x] SHOW TABLES 能看到 users
+[x] DESCRIBE users 字段正确
+[x] （可选）seed 后 users 表有 admin 行
 ```
 
 通过后回复：**步骤 4 通过**，或 **做步骤 5**。

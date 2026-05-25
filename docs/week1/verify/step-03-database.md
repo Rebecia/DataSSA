@@ -67,10 +67,10 @@ gen.close()
 ## 5. 验收打勾
 
 ```text
-[ ] python -c "from server.db.models import User" 无报错
-[ ] User.__tablename__ == "users"
-[ ] 列含 id / username / password_hash / role / created_at
-[ ] 已知：JWT sub 将使用 username（见 models.py 顶部注释）
+[x] python -c "from server.db.models import User" 无报错
+[x] User.__tablename__ == "users"
+[x] 列含 id / username / password_hash / role / created_at
+[x] 已知：JWT sub 将使用 username（见 models.py 顶部注释）
 ```
 
 全部通过后回复：**步骤 3 通过**，或 **做步骤 4**。
