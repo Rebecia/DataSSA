@@ -5,7 +5,7 @@
 | 项 | 内容 |
 |----|------|
 | 完成日期 | |
-| 当前进度 | 步骤 3 / 12（验收见 `docs/week1/verify/step-03-database.md`） |
+| 当前进度 | 步骤 4 / 12（验收见 `docs/week1/verify/step-04-alembic.md`） |
 | 变更文件列表 | |
 | 遗留问题 | |
 | JWT sub 字段 | username |

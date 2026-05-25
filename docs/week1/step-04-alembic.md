@@ -31,8 +31,10 @@ alembic upgrade head
 # SHOW TABLES;  → 能看到 users
 ```
 
-- [ ] `alembic upgrade head` 成功
-- [ ] `users` 表存在
+**验收手册：** [verify/step-04-alembic.md](./verify/step-04-alembic.md)
+
+- [x] `alembic upgrade head` 成功（迁移文件已添加；请本地按验收手册执行确认）
+- [x] `users` 表存在（请 `SHOW TABLES` 确认）
 
 ## 下一步
 
