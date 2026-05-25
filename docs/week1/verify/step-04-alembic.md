@@ -59,6 +59,14 @@ docker compose exec mysql mysql -udatasaa -pdatasaa datasaa -e "DESCRIBE users;"
 
 ## 4. 可选：种子管理员
 
+若 `python -m server.db.seed` 报 bcrypt/passlib 错误，先执行：
+
+```bash
+pip install 'bcrypt>=4.0.1,<5.0.0'
+```
+
+再运行：
+
 ```bash
 python -m server.db.seed
 ```

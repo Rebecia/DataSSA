@@ -5,13 +5,15 @@ from __future__ import annotations
 import os
 import sys
 
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import select
 
 from server.db.models import User
 from server.db.session import SessionLocal
 
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def seed_admin(*, username: str = "admin", password: str = "admin12345") -> None:
@@ -26,7 +28,7 @@ def seed_admin(*, username: str = "admin", password: str = "admin12345") -> None
             return
         user = User(
             username=username,
-            password_hash=_pwd.hash(password),
+            password_hash=_hash_password(password),
             role="admin",
         )
         db.add(user)
