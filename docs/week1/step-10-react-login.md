@@ -27,10 +27,11 @@
 
 ## 本步完成标志
 
-- [ ] 用 test1 账号能在页面上登录
-- [ ] DevTools → Application → localStorage 能看到 token
-- [ ] 登录后 URL 变为 `/app`（占位页可先空白）
+- [x] 用 test1 账号能在页面上登录
+- [x] DevTools → Application → localStorage 能看到 token
+- [x] 登录后 URL 变为 `/app`（占位页可先空白）
 
 ## 下一步
 
 [步骤 11：注册 + 守卫 + 占位页](./step-11-react-guard.md)
+![1779773872522](image/step-10-react-login/1779773872522.png)![1779773877761](image/step-10-react-login/1779773877761.png)
